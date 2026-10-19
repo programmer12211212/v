@@ -16,9 +16,7 @@ SECRET_KEY = os.environ.get(
 )
 
 DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1,[::1],.vercel.app,.now.sh"
-ALLOWED_HOSTS = [
-    h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS).split(",") if h.strip()
-]
+ALLOWED_HOSTS = []
 
 DEFAULT_CSRF_ORIGINS = "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://*.vercel.app"
 CSRF_TRUSTED_ORIGINS = [
