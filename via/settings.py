@@ -1,36 +1,35 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Vercel / Lambda serverless muhitlarida SQLite faylini /tmp da yaratish kerak.
-# /var/task yoki boshqa read-only direktoriyalar ko'pincha yozib bo'lmaydi.
-DB_PATH = os.environ.get("DB_PATH")
-if DB_PATH:
-    SQLITE_DB_PATH = Path(DB_PATH)
-else:
-    SQLITE_DB_PATH = Path("/tmp") / "via.db" if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") else BASE_DIR / "db.sqlite3"
-
-if not SQLITE_DB_PATH.parent.exists():
-    SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Vercel / AWS Lambda serverless muhitlarida DB faylini /tmp ichida yaratish zarur.
+# /var/task ko'pincha o'qish uchun emas, yozish uchun to'liq qo'llab-quvvatlanmaydi.
+SERVERLESS_ENV = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "dev-insecure-key-change-me-via-0123456789abcdefghijklmnopqrstuvwxyz",
 )
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1],*").split(",") if h.strip()]
+
+DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1,[::1],.vercel.app,.now.sh"
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS).split(",") if h.strip()
+]
+
+DEFAULT_CSRF_ORIGINS = "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://*.vercel.app"
 CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.environ.get(
-        "DJANGO_CSRF_TRUSTED_ORIGINS",
-        "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000",
-    ).split(",") if o.strip()
+    o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", DEFAULT_CSRF_ORIGINS).split(",") if o.strip()
 ]
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -77,12 +76,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "via.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(SQLITE_DB_PATH),
+if DATABASE_URL := os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    if SERVERLESS_ENV:
+        DB_PATH = os.environ.get("DB_PATH") or "/tmp/via.db"
+    else:
+        DB_PATH = str(BASE_DIR / "db.sqlite3")
+    SQLITE_DB_PATH = Path(DB_PATH)
+    SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not SQLITE_DB_PATH.exists():
+        SQLITE_DB_PATH.touch()
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(SQLITE_DB_PATH),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -95,7 +111,8 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", "/tmp/media" if SERVERLESS_ENV else str(BASE_DIR / "media")))
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
