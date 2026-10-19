@@ -16,7 +16,11 @@ SECRET_KEY = os.environ.get(
 )
 
 DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1,[::1],.vercel.app,.now.sh"
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "vee-j5ey.onrender.com",
+    "localhost",
+    "127.0.0.1",
+]
 
 DEFAULT_CSRF_ORIGINS = "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://*.vercel.app"
 CSRF_TRUSTED_ORIGINS = [
