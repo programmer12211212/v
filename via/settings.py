@@ -3,6 +3,17 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Vercel / Lambda serverless muhitlarida SQLite faylini /tmp da yaratish kerak.
+# /var/task yoki boshqa read-only direktoriyalar ko'pincha yozib bo'lmaydi.
+DB_PATH = os.environ.get("DB_PATH")
+if DB_PATH:
+    SQLITE_DB_PATH = Path(DB_PATH)
+else:
+    SQLITE_DB_PATH = Path("/tmp") / "via.db" if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") else BASE_DIR / "db.sqlite3"
+
+if not SQLITE_DB_PATH.parent.exists():
+    SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -69,7 +80,7 @@ WSGI_APPLICATION = "via.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": str(SQLITE_DB_PATH),
     }
 }
 
